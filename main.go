@@ -1,22 +1,40 @@
+
 package main
 
-import "github.com/mikejs/gomongo/mongo"
+import (
+        "fmt"
+	"log"
+        "gopkg.in/mgo.v2"
+        "gopkg.in/mgo.v2/bson"
+)
 
+type Person struct {
+        Name string
+        Phone string
+}
 
 func main() {
-        conn, _ := mongo.Connect("127.0.0.1")
-        collection := conn.GetDB("test").GetCollection("test_collection")
+        session, err := mgo.Dial("127.0.0.1")
+        if err != nil {
+                panic(err)
+        }
+        defer session.Close()
 
-        doc, _ := mongo.Marshal(map[string]string{
-                "_id":     "doc1",
-                "title":   "A Mongo document",
-                "content": "Testing, 1. 2. 3.",
-        })
-        collection.Insert(doc)
+        // Optional. Switch the session to a monotonic behavior.
+        session.SetMode(mgo.Monotonic, true)
 
-        query, _ := mongo.Marshal(map[string]string{"_id": "doc1"})
-        got, _ := collection.FindOne(query)
-        mongo.Equal(doc, got) // true!
+        c := session.DB("test").C("people")
+        err = c.Insert(&Person{"Ale", "+55 53 8116 9639"},
+	               &Person{"Cla", "+55 53 8402 8510"})
+        if err != nil {
+                log.Fatal(err)
+        }
 
-        collection.Drop()
+        result := Person{}
+        err = c.Find(bson.M{"name": "Ale"}).One(&result)
+        if err != nil {
+                log.Fatal(err)
+        }
+
+        fmt.Println("Phone:", result.Phone)
 }
